@@ -5,4 +5,48 @@ date: "June 6, 2019"
 output: html_document
 ---
 
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(cache = TRUE, echo= TRUE)
+```
+# **Assessment of Weather Event Impact on the United States**
+  
+## Data Processing
+
+Data used for this analysis were taken from the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database. Within the weather data, which was taken between 1950-November 11th 2011, there were 902297 observation with 37 variables. 
+
+```{r}
+setwd("~/R Material/Coursera/Course 5 Reproducible Research/Week 4/Project Storm/repdata_data_StormData.csv")
+WeatherDatabase <- read.csv("repdata_data_StormData.csv", stringsAsFactors = FALSE)
+```
+
+To address questions on health and economics, columns were selected based on their usefulness in the analysis. The following variables were selected:
+
+1. STATE -> information of location of weather event
+2. BGN_DATE,BGN_TIME,END_DATE,END_TIME -> information on time/duration of weather event
+3. EVTYPE -> information on type of weather event
+4. FATALITIES, INJURIES -> measurable variables of health
+5. PROPDMG, PROPDMGEXP, CROPDMG, CROPDMGEXP -> measurable variables of economics
+
+Using the *dplyr* **select()** function, important columns were retained in a new data table.
+
+```{r}
+library(dplyr)
+#list of variables important to the analysis
+UsefulColumns <- c("EVTYPE", "STATE","BGN_DATE", "BGN_TIME", "TIME_ZONE",
+                   "END_DATE", "END_TIME","FATALITIES", "INJURIES", "PROPDMG",
+                   "PROPDMGEXP", "CROPDMG", "CROPDMGEXP")
+#Retain only the useful variables
+WeatherDatabase <- select(WeatherDatabase, UsefulColumns)
+
+```
+
+In 1950, only data on Tornados was recorded. As years went by, more different types of weather events were recorded. It was only in January 1996 when all the unique weather events in this dataset were available to be recorded. Because we want to compare impacts between each weather event, we will focus our attention to events that occurred on or after Jan 1st 1996. 
+
+The *dplyr* **filter()** function was utilized to narrow down the time period within the data table.
+```{r}
+#First, change BGN_DATE from a character class to a Date Class
+WeatherDatabase$BGN_DATE <- as.Date(WeatherDatabase$BGN_DATE, format = "%m/%d/%Y")
+WeatherDatabase <- filter(WeatherDatabase, BGN_DATE >= "1996-01-01")
+head(WeatherDatabase)
+```
 
