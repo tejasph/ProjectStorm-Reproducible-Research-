@@ -13,7 +13,7 @@ library(dplyr)
 
 #EVTYPE Cleaning
 EVClean <- function(x){
-      print(paste("Previous Unique Events:", length(unique(x))))
+      
       x <- toupper(x)
       x <- trimws(x, which = c("both", "left", "right"))
       x <- gsub("BLIZZARD SUMMARY", "BLIZZARD", x)
@@ -50,9 +50,35 @@ EVClean <- function(x){
       x[grepl("DRY",x)] <- "DROUGHT"
       x[grepl("DRIEST",x)] <- "DROUGHT"
       
-      print(paste("Unique Events:", length(unique(x))))
+      
       return(x)
       
+}
+
+ExpConvert <- function(x) {
+      if (grepl("K", x)== TRUE){
+            x <- 1000
+      } else if (grepl("M",x)== TRUE){
+            x <- 10^6
+      } else if (grepl("B", x)== TRUE){
+            x <- 10^9
+      } else if (grepl("H", x)== TRUE){
+            x <- 100
+      } else if (grepl("[012345678]", x)== TRUE){
+            x <- (10^(as.numeric(x)))
+      } else {
+            x <- NA
+      }
+      return(x)
+}
+
+DmgCombine <- function(Dmg, Exp){
+      
+      for (i in c(1:length(Dmg))) {
+          Dmg[i] <- Dmg[i]*Exp[i] 
+             
+      }
+      return (Dmg)
 }
 
 #list of variables important to the analysis
@@ -78,7 +104,7 @@ WeatherDatabase <- WeatherDatabase[-grep("^SUMMARY", WeatherDatabase$EVTYPE),]
 
 WeatherDatabase$EVTYPE <- EVClean(WeatherDatabase$EVTYPE)
 RemovalIndex = integer()
-print(paste("Before:", as.character(length(WeatherDatabase$EVTYPE))))
+
 
 for (i in c(1:length(WeatherDatabase$EVTYPE))){
       for (x in c(1:length(EventNames))){
@@ -93,5 +119,12 @@ for (i in c(1:length(WeatherDatabase$EVTYPE))){
 }
 
 WeatherDatabase <- WeatherDatabase[-RemovalIndex,]
-print(unique(WeatherDatabase$EVTYPE))
+WeatherDatabase$PROPDMGEXP <- toupper(WeatherDatabase$PROPDMGEXP)
+WeatherDatabase$PROPDMGEXP <- sapply(WeatherDatabase$PROPDMGEXP, ExpConvert)
+WeatherDatabase <- mutate(WeatherDatabase, PROPDMG = DmgCombine(PROPDMG,PROPDMGEXP))
+
+WeatherDatabase$CROPDMGEXP <- toupper(WeatherDatabase$CROPDMGEXP)
+WeatherDatabase$CROPDMGEXP <- sapply(WeatherDatabase$CROPDMGEXP, ExpConvert)
+WeatherDatabase <- mutate(WeatherDatabase, CROPDMG = DmgCombine(CROPDMG,CROPDMGEXP))
+
 

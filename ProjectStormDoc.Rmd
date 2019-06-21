@@ -48,5 +48,137 @@ The *dplyr* **filter()** function was utilized to narrow down the time period wi
 WeatherDatabase$BGN_DATE <- as.Date(WeatherDatabase$BGN_DATE, format = "%m/%d/%Y")
 WeatherDatabase <- filter(WeatherDatabase, BGN_DATE >= "1996-01-01")
 head(WeatherDatabase)
+#change all EVTYPE entries to upper case format, and then remove any event type containing
+#summary
+WeatherDatabase$EVTYPE <- toupper(WeatherDatabase$EVTYPE)
+WeatherDatabase <- WeatherDatabase[-grep("^SUMMARY", WeatherDatabase$EVTYPE),]
+```
+###Cleaning EVTYPE
+
+The event type variables causes a lot of issues for the analysis. There are only 48 different types of events specified by the Storm Data Documentation, yet there over 500 different event types in the actual data; caused by typos, or entries that don't follow the documentation guidelines.
+
+I created a function that manually cleans through and compresses the number of different variables. For simplicity, event types like "heavy wind" and "strong wind" were collapsed into a single variable: Wind. After cleaning, only 35 different event types were available.
+```{r}
+#EVTYPE Cleaning
+EVClean <- function(x){
+      print(paste("Previous Unique Events:", length(unique(x))))
+      x <- toupper(x)
+      x <- trimws(x, which = c("both", "left", "right"))
+      x <- gsub("BLIZZARD SUMMARY", "BLIZZARD", x)
+      x <- gsub("COASTAL.*", "COASTAL FLOOD",x)
+      x <- gsub(".*DUST DEV.*", "DUST DEVIL", x)
+      x <- gsub(".*SMOKE*.","DENSE SMOKE", x)
+      x <- gsub(".*DUST$", "DUST STORM", x)
+      x <- gsub("^TSTM.*", "THUNDERSTORM WIND", x) # need to account for thunderstorm wind
+      x <- gsub("HURRICANE.*", "HURRICANE", x)
+      x[grepl("TYPHOON",x)] <- "HURRICANE"
+      x <- gsub("^VOLCANIC.*", "VOLCANIC ASH", x)
+      x[grepl("MARINE\\s[T]", x)] <- "MARINE THUNDERSTORM WIND"
+      x[grepl("(?<!THUNDERSTORM\\s)(WIND)", x, perl = TRUE)] <- "WIND"
+      x[grepl("SURF", x)] <- "HIGH SURF"
+      x[grepl("FUNNEL",x)] <- "FUNNEL CLOUD"
+      x[grepl("(?<=STORM\\s)(WIND)", x, perl = TRUE)] <- "THUNDERSTORM WIND"
+      x[grepl("FLOOD", x)] <- "FLOODING"
+      x[grepl("DEBRIS",x)] <- "DEBRIS FLOW"
+      x[grepl("(?<!FREEZING\\s)(FOG)",x, perl= TRUE)] <- "DENSE FOG"
+      x[grepl("HEAT", x)]<- "HEAT"
+      x[grepl("HOT", x)]<- "HEAT"
+      x[grepl("WARM", x)]<- "HEAT"
+      x[grepl("HAIL",x)] <- "HAIL"
+      x[grepl("ICE",x)] <- "ICE STORM"
+      x[grepl("RIP",x)] <- "RIP CURRENT"
+      x[grepl("SLEE",x)] <- "SLEET"
+      x[grepl("WATERSPOUT",x)] <- "WATERSPOUT"
+      x[grepl("FIRE",x)] <- "WILDFIRE"
+      x[grepl("LAKE",x)] <- "LAKE-EFFECT SNOW"
+      x[grepl("(?<!LAKE-EFFECT\\s)(SNOW)", x, perl = TRUE)] <- "HEAVY SNOW" 
+      x[grepl("(?!.*STORM)(WINT)", x, perl= TRUE)] <- "WINTER WEATHER"
+      x[grepl("COLD",x)] <- "EXCESSIVE COLD"
+      x[grepl("COOL",x)] <- "EXCESSIVE COLD"
+      x[grepl("DRY",x)] <- "DROUGHT"
+      x[grepl("DRIEST",x)] <- "DROUGHT"
+      
+      print(paste("Unique Events:", length(unique(x))))
+      return(x)
+      
+}
+WeatherDatabase$EVTYPE <- EVClean(WeatherDatabase$EVTYPE)
+```
+
+There were still over 100 unique event types in the dataset. At this point, those event types were too difficult to sort into a category so rows not containing the 35 possible event types were removed entirely from the dataset.
+```{r}
+#Viable Event Names
+EventNames <- toupper(c("Astronomical Low Tide", "Avalanche", "Blizzard","Coastal Flood","Debris Flow", "Dense Smoke", "Drought", "Dust Devil", "Dust Storm", "Excessive Heat", "Flash Flood", "Flood", "Frost/Freeze", "Funnel Cloud", "Hail", "Heat", "Heavy Rain","Heavy Snow", "High Surf", "Wind", "Hurricane", "Ice Storm", "Lake-Effect Snow", "Flooding", "Lightning", "Marine Thunderstorm Wind", "Rip Current", "Seiche",
+"Sleet", "Storm Surge/Tide", "Thunderstorm Wind", "Tornado","Tropical Depression",
+"Tropical Storm", "Tsunami", "Volcanic Ash", "Waterspout", "Wildfire", "Winter Storm",
+"Winter Weather"))
+
+RemovalIndex = integer()
+print(paste("Before:", as.character(length(WeatherDatabase$EVTYPE))))
+
+for (i in c(1:length(WeatherDatabase$EVTYPE))){
+      for (x in c(1:length(EventNames))){
+            if (WeatherDatabase$EVTYPE[i] == EventNames[x]){
+                  break
+            } else if (x == length(EventNames)) {
+                  RemovalIndex = c(RemovalIndex, i)
+                  break
+                 
+            }
+      }
+}
+
+WeatherDatabase <- WeatherDatabase[-RemovalIndex,]
+print(unique(WeatherDatabase$EVTYPE))
+```
+
+###Cleaning the Crop and Property Damage columns
+
+To calculate the damages to property we must combine PROPDMG, which is a damage numerical, with its corresponding PROPDMGEXP value, which denotes a multiplier. Here is a list of multipliers:
+1. H or h - 10^3
+2. M or m - 10^6
+3. B or b - 10^9
+4. numerical x that ranges from 0-8 - 10^x
+5. "?","+", "-" represent uncertainties and will be ignored for this analysis
+
+```{r}
+#First we create a function that will deal with Exp values and conver them into numbers
+ExpConvert <- function(x) {
+      if (grepl("K", x)== TRUE){
+            x <- 1000
+      } else if (grepl("M",x)== TRUE){
+            x <- 10^6
+      } else if (grepl("B", x)== TRUE){
+            x <- 10^9
+      } else if (grepl("H", x)== TRUE){
+            x <- 100
+      } else if (grepl("[012345678]", x)== TRUE){
+            x <- (10^(as.numeric(x)))
+      } else {
+            x <- NA
+      }
+      return(x)
+}
+
+#Use the ExpConvert function on the entirety of the PROPDMGEXP and CROPDMGEXP columns
+
+WeatherDatabase$PROPDMGEXP <- sapply(toupper(WeatherDatabase$PROPDMGEXP), ExpConvert)
+WeatherDatabase$CROPDMGEXP <- sapply(toupper(WeatherDatabase$CROPDMGEXP), ExpConvert)
+
+#Created a function that multiplies two column values for every row
+DmgCombine <- function(Dmg, Exp){
+      
+      for (i in c(1:length(Dmg))) {
+          Dmg[i] <- Dmg[i]*Exp[i] 
+             
+      }
+      return (Dmg)
+}
+
+#Use DmgCombine to calculate both crop damage and property damage
+WeatherDatabase <- mutate(WeatherDatabase, PROPDMG = DmgCombine(PROPDMG,PROPDMGEXP))
+WeatherDatabase <- mutate(WeatherDatabase, CROPDMG = DmgCombine(CROPDMG,CROPDMGEXP))
+head(WeatherDatabase$PROPDMG)
+head(WeatherDatabase$CROPDMG)
 ```
 
