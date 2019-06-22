@@ -81,9 +81,14 @@ DmgCombine <- function(Dmg, Exp){
       return (Dmg)
 }
 
+#finds the top 10 for one of the parameter categories: fatalities, injuries, cropdmg, propdmg
+TopFive <- function(Frame, Category){
+      Frame <- Frame[order(-Frame[,Category]),]
+      return(Frame[1:5,1])
+}
+
 #list of variables important to the analysis
-UsefulColumns <- c("EVTYPE", "STATE","BGN_DATE", "BGN_TIME", "TIME_ZONE",
-                   "END_DATE", "END_TIME","FATALITIES", "INJURIES", "PROPDMG",
+UsefulColumns <- c("EVTYPE","BGN_DATE", "FATALITIES", "INJURIES", "PROPDMG",
                    "PROPDMGEXP", "CROPDMG", "CROPDMGEXP")
 EventNames <- toupper(c("Astronomical Low Tide", "Avalanche", "Blizzard","Coastal Flood","Debris Flow",
                 "Dense Smoke", "Drought", "Dust Devil", "Dust Storm", "Excessive Heat", 
@@ -127,4 +132,28 @@ WeatherDatabase$CROPDMGEXP <- toupper(WeatherDatabase$CROPDMGEXP)
 WeatherDatabase$CROPDMGEXP <- sapply(WeatherDatabase$CROPDMGEXP, ExpConvert)
 WeatherDatabase <- mutate(WeatherDatabase, CROPDMG = DmgCombine(CROPDMG,CROPDMGEXP))
 
+HealthFrame <- with(WeatherDatabase,data.frame(EventType = EVTYPE, BGN_DATE = BGN_DATE,
+                                               Fatalities =FATALITIES, Injuries = INJURIES,
+                                               PropertyDmg = PROPDMG, CropDmg = CROPDMG, stringsAsFactors = FALSE))
+HealthFrame$BGN_DATE <- as.numeric(substring(as.character(HealthFrame$BGN_DATE),1,4))
+
+#Rank top five events for each category
+RankingTable <- group_by(HealthFrame, EventType)%>% 
+      summarise(sum(Fatalities), sum(Injuries), sum(PropertyDmg), sum(CropDmg))
+
+#find top five values for each category
+TopFatalities <- TopFive(RankingTable, 2)$EventType
+TopInjuries <- TopFive(RankingTable, 3)$EventType
+TopPropertyDmg <- TopFive(RankingTable, 4)$EventType
+TopCropDmg <- TopFive(RankingTable,5)$EventType
+
+names(RankingTable) <- c("EventType", "Fatalities", "Injuries", "PropertyDmg", "CropDmg")
+YearlyTable <- group_by(HealthFrame, EventType, BGN_DATE) %>% summarise(sum(Fatalities), sum(Injuries), sum(PropertyDmg), sum(CropDmg))
+names(YearlyTable) <- c("EventType", "BgnDate", "Fatalities", "Injuries", "PropertyDmg", "CropDmg")
+
+#Fatality Analysis
+FatalityFrame <- YearlyTable[YearlyTable$EventType %in% TopFatalities, c(1:3)]
+
+g <- ggplot(FatalityFrame, aes(x = BgnDate,y = Fatalities, col = EventType)) 
+g <- g + geom_line(size = 2)
 

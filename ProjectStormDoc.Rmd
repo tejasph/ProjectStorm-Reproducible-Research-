@@ -32,8 +32,7 @@ Using the *dplyr* **select()** function, important columns were retained in a ne
 ```{r}
 library(dplyr)
 #list of variables important to the analysis
-UsefulColumns <- c("EVTYPE", "STATE","BGN_DATE", "BGN_TIME", "TIME_ZONE",
-                   "END_DATE", "END_TIME","FATALITIES", "INJURIES", "PROPDMG",
+UsefulColumns <- c("EVTYPE","BGN_DATE","FATALITIES", "INJURIES", "PROPDMG",
                    "PROPDMGEXP", "CROPDMG", "CROPDMGEXP")
 #Retain only the useful variables
 WeatherDatabase <- select(WeatherDatabase, UsefulColumns)
