@@ -181,3 +181,7 @@ head(WeatherDatabase$PROPDMG)
 head(WeatherDatabase$CROPDMG)
 ```
 
+Because there were so many event types, I decided to focus in on the top 5 events for each of the four categories: Fatalities, Injuries, Crop Damage, and Property Damage. My goal was to look at how these measured variables changed over time. To accomplish this, a functino was created to rank and extract the top 5 five events for a given category. 
+
+```{r}
+
