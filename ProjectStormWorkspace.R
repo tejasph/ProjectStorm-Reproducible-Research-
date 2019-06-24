@@ -81,11 +81,19 @@ DmgCombine <- function(Dmg, Exp){
       return (Dmg)
 }
 
-#finds the top 10 for one of the parameter categories: fatalities, injuries, cropdmg, propdmg
+#finds the top 5 for one of the parameter categories: fatalities, injuries, cropdmg, propdmg
 TopFive <- function(Frame, Category){
-      Frame <- Frame[order(-Frame[,Category]),]
+      Frame <- Frame[order(-Frame[,2]),]
+      print(head(Frame))
       return(Frame[1:5,1])
 }
+#Removes NA Values from a given dataframe
+CheckNA <- function(NAFrame){
+      RemovedNA <- NAFrame[!is.na(NAFrame[,3]),]
+      return(RemovedNA)
+}
+
+
 
 #list of variables important to the analysis
 UsefulColumns <- c("EVTYPE","BGN_DATE", "FATALITIES", "INJURIES", "PROPDMG",
@@ -137,24 +145,58 @@ WeatherDatabase <- mutate(WeatherDatabase, CROPDMG = DmgCombine(CROPDMG,CROPDMGE
                                                #PropertyDmg = PROPDMG, CropDmg = CROPDMG, stringsAsFactors = FALSE))
 WeatherDatabase$BGN_DATE <- as.numeric(substring(as.character(WeatherDatabase$BGN_DATE),1,4))
 
-#Rank top five events for each category
-RankingTable <- group_by(WeatherDatabase, EVTYPE)%>% 
-      summarise(sum(FATALITIES), sum(INJURIES), sum(PROPDMG), sum(CROPDMG))
-names(RankingTable) <- c("EventType", "Fatalities", "Injuries", "PropertyDmg", "CropDmg")
+FatalityFrame <- CheckNA(select(WeatherDatabase, EVTYPE:FATALITIES))
+InjuryFrame <- CheckNA(select(WeatherDatabase, c(EVTYPE, BGN_DATE, INJURIES)))
+PropertyFrame <- CheckNA(select(WeatherDatabase, c(EVTYPE, BGN_DATE, PROPDMG)))
+CropFrame <- CheckNA(select(WeatherDatabase, c(EVTYPE, BGN_DATE, CROPDMG)))
+
+FatalitySumFrame <- group_by(FatalityFrame, EVTYPE) %>% 
+     summarise(sum(FATALITIES))
+
+InjurySumFrame <- group_by(InjuryFrame, EVTYPE) %>% 
+      summarise(sum(INJURIES))
+PropertySumFrame <- group_by(PropertyFrame, EVTYPE) %>% 
+      summarise(sum(PROPDMG))
+CropSumFrame <- group_by(CropFrame, EVTYPE) %>% 
+      summarise(sum(CROPDMG))
+
+names(FatalitySumFrame) <- c("EVTYPE","FATALITIES")
+names(InjurySumFrame) <- c("EVTYPE","INJURIES")
+names(PropertySumFrame) <- c("EVTYPE","PROPDMG")
+names(CropSumFrame) <- c("EVTYPE","CROPDMG")
+
+
 
 #find top five values for each category
-TopFatalities <- TopFive(RankingTable, 2)$EventType
-TopInjuries <- TopFive(RankingTable, 3)$EventType
-TopPropertyDmg <- TopFive(RankingTable, 4)$EventType
-TopCropDmg <- TopFive(RankingTable,5)$EventType
+TopFatalities <- TopFive(FatalitySumFrame, "FATALITIES")$EVTYPE
+TopInjuries <- TopFive(InjurySumFrame, "INJURIES")$EVTYPE
+TopPropertyDmg <- TopFive(PropertySumFrame, "PROPDMG")$EVTYPE
+TopCropDmg <- TopFive(CropSumFrame, "CROPDMG")$EVTYPE
+
+FatalityFrame <- group_by(FatalityFrame, EVTYPE, BGN_DATE)%>% summarise(sum(FATALITIES))
+names(FatalityFrame) <- c("EVTYPE","BGN_DATE","Fatalities")
+FatalityFrame <- FatalityFrame[FatalityFrame$EVTYPE %in% TopFatalities, c(1:3)]
+
+InjuryFrame <- group_by(InjuryFrame, EVTYPE, BGN_DATE) %>% summarise(sum(INJURIES))
+names(InjuryFrame) <- c("EVTYPE", "BGN_DATE", "Injuries")
+InjuryFrame <- InjuryFrame[InjuryFrame$EVTYPE %in% TopInjuries, c(1:3)]
+
+PropertyFrame <- group_by(PropertyFrame, EVTYPE, BGN_DATE) %>% summarise(sum(PROPDMG))
+names(PropertyFrame) <- c("EVTYPE", "BGN_DATE", "PropDmg")
+PropertyFrame <- PropertyFrame[PropertyFrame$EVTYPE %in% TopPropertyDmg, c(1:3)]
+
+CropFrame <- group_by(CropFrame, EVTYPE, BGN_DATE) %>% summarise(sum(CROPDMG))
+names(CropFrame) <- c("EVTYPE", "BGN_DATE", "CropDmg")
+CropFrame <- CropFrame[CropFrame$EVTYPE %in% TopCropDmg, c(1:3)]
 
 
-YearlyTable <- group_by(WeatherDatabase, EVTYPE, BGN_DATE) %>% summarise(sum(FATALITIES), sum(INJURIES), sum(PROPDMG), sum(CROPDMG))
-names(YearlyTable) <- c("EventType", "BgnDate", "Fatalities", "Injuries", "PropertyDmg", "CropDmg")
+#YearlyTable <- group_by(WeatherDatabase, EVTYPE, BGN_DATE) %>% summarise(sum(FATALITIES), sum(INJURIES), sum(PROPDMG), sum(CROPDMG))
+#names(YearlyTable) <- c("EventType", "BgnDate", "Fatalities", "Injuries", "PropertyDmg", "CropDmg")
 
 #Fatality Analysis
-FatalityFrame <- YearlyTable[YearlyTable$EventType %in% TopFatalities, c(1:3)]
+#FatalityFrame <- YearlyTable[YearlyTable$EventType %in% TopFatalities, c(1:3)]
 
 #g <- ggplot(FatalityFrame, aes(x = BgnDate,y = Fatalities, col = EventType)) 
 #g <- g + geom_line(size = 2)
 
+#

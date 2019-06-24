@@ -181,7 +181,48 @@ head(WeatherDatabase$PROPDMG)
 head(WeatherDatabase$CROPDMG)
 ```
 
-Because there were so many event types, I decided to focus in on the top 5 events for each of the four categories: Fatalities, Injuries, Crop Damage, and Property Damage. My goal was to look at how these measured variables changed over time. To accomplish this, a functino was created to rank and extract the top 5 five events for a given category. 
+Because there were so many event types, I decided to focus in on the top 5 events for each of the four categories: Fatalities, Injuries, Crop Damage, and Property Damage. My goal was to look at how these measured variables changed over time. To accomplish this, a function was created to rank and extract the top 5 five events for a given category.But, first NA values had to be removed so four categorical frames were created. 
 
 ```{r}
+#Removes NA Values from a given dataframe
+CheckNA <- function(NAFrame){
+      RemovedNA <- NAFrame[!is.na(NAFrame[,3]),]
+      return(RemovedNA)
+}
 
+FatalityFrame <- CheckNA(select(WeatherDatabase, EVTYPE:FATALITIES))
+InjuryFrame <- CheckNA(select(WeatherDatabase, c(EVTYPE, BGN_DATE, INJURIES)))
+PropertyFrame <- CheckNA(select(WeatherDatabase, c(EVTYPE, BGN_DATE, PROPDMG)))
+CropFrame <- CheckNA(select(WeatherDatabase, c(EVTYPE, BGN_DATE, CROPDMG)))
+
+#created alternate frames that computed the totals for the different event types
+FatalitySumFrame <- group_by(FatalityFrame, EVTYPE) %>% 
+     summarise(sum(FATALITIES))
+head(FatalitySumFrame)
+InjurySumFrame <- group_by(InjuryFrame, EVTYPE) %>% 
+      summarise(sum(INJURIES))
+PropertySumFrame <- group_by(PropertyFrame, EVTYPE) %>% 
+      summarise(sum(PROPDMG))
+CropSumFrame <- group_by(CropFrame, EVTYPE) %>% 
+      summarise(sum(CROPDMG))
+
+names(FatalitySumFrame) <- c("EVTYPE","FATALITIES")
+names(InjurySumFrame) <- c("EVTYPE","INJURIES")
+names(PropertySumFrame) <- c("EVTYPE","PROPDMG")
+names(CropSumFrame) <- c("EVTYPE","CROPDMG")
+
+
+
+#Function that finds the top 5 for one of the parameter categories: fatalities, injuries, cropdmg, propdmg
+TopFive <- function(Frame, Category){
+      Frame <- Frame[order(-Frame[,2]),]
+      print(head(Frame))
+      return(Frame[1:5,1])
+}
+
+#find top five values for each category
+TopFatalities <- TopFive(FatalitySumFrame, "FATALITIES")$EVTYPE
+TopInjuries <- TopFive(InjurySumFrame, "INJURIES")$EVTYPE
+TopPropertyDmg <- TopFive(PropertySumFrame, "PROPDMG")$EVTYPE
+TopCropDmg <- TopFive(CropSumFrame, "CROPDMG")$EVTYPE
+```
