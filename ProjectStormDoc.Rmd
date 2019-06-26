@@ -9,7 +9,10 @@ output: html_document
 knitr::opts_chunk$set(cache = TRUE, echo= TRUE)
 ```
 # **Assessment of Weather Event Impact on the United States**
-  
+
+##Synopsis
+The following report documents and oversimplifed analysis of weather data with the purpose of practising reproducibility. The effect of weather event on injuries, fatalities, crop damage, and prop damage were all assessed as a function of time. The top five weather events for each category were explored further, based on totals over time. The concepts of the analysis should be taken lightly, as focus was put on format. The reader must be aware of the extreme limitations of this simplistic analysis. For example, some events were recorded for a smaller number of years which contributed to a lower ranking in the category totals that were used for the rankings. 
+
 ## Data Processing
 
 Data used for this analysis were taken from the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database. Within the weather data, which was taken between 1950-November 11th 2011, there were 902297 observation with 37 variables. 
@@ -177,6 +180,9 @@ DmgCombine <- function(Dmg, Exp){
 #Use DmgCombine to calculate both crop damage and property damage
 WeatherDatabase <- mutate(WeatherDatabase, PROPDMG = DmgCombine(PROPDMG,PROPDMGEXP))
 WeatherDatabase <- mutate(WeatherDatabase, CROPDMG = DmgCombine(CROPDMG,CROPDMGEXP))
+#Retain only the year
+WeatherDatabase$BGN_DATE <- as.numeric(substring(as.character(WeatherDatabase$BGN_DATE),1,4))
+head(WeatherDatabase$BGN_DATE)
 head(WeatherDatabase$PROPDMG)
 head(WeatherDatabase$CROPDMG)
 ```
@@ -226,3 +232,53 @@ TopInjuries <- TopFive(InjurySumFrame, "INJURIES")$EVTYPE
 TopPropertyDmg <- TopFive(PropertySumFrame, "PROPDMG")$EVTYPE
 TopCropDmg <- TopFive(CropSumFrame, "CROPDMG")$EVTYPE
 ```
+
+Finally, we want to implement these ratings and focus our dataset to those event types, assessing health and economics over time. To do this, the data frames had to be altered/grouped by year.
+
+```{r}
+FatalityFrame <- group_by(FatalityFrame, EVTYPE, BGN_DATE)%>% summarise(sum(FATALITIES))
+names(FatalityFrame) <- c("EVTYPE","BGN_DATE","Fatalities")
+FatalityFrame <- FatalityFrame[FatalityFrame$EVTYPE %in% TopFatalities, c(1:3)]
+
+InjuryFrame <- group_by(InjuryFrame, EVTYPE, BGN_DATE) %>% summarise(sum(INJURIES))
+names(InjuryFrame) <- c("EVTYPE", "BGN_DATE", "Injuries")
+InjuryFrame <- InjuryFrame[InjuryFrame$EVTYPE %in% TopInjuries, c(1:3)]
+
+PropertyFrame <- group_by(PropertyFrame, EVTYPE, BGN_DATE) %>% summarise(sum(PROPDMG))
+names(PropertyFrame) <- c("EVTYPE", "BGN_DATE", "PropDmg")
+PropertyFrame <- PropertyFrame[PropertyFrame$EVTYPE %in% TopPropertyDmg, c(1:3)]
+
+CropFrame <- group_by(CropFrame, EVTYPE, BGN_DATE) %>% summarise(sum(CROPDMG))
+names(CropFrame) <- c("EVTYPE", "BGN_DATE", "CropDmg")
+CropFrame <- CropFrame[CropFrame$EVTYPE %in% TopCropDmg, c(1:3)]
+head(FatalityFrame)
+```
+
+##Data Analysis
+
+Now that we cleaned the data, we will plot some figures to help viusalize the impacts of certain events on health and economics, over time. For the sake of simplicity, we are only looking at how the yearly totals changed over time.
+
+First lets look at the health impacts, utilizing ggplot as our visualization package. 
+```{r}
+library(ggplot2)
+library(gridExtra)
+FatalityOverTime <- ggplot(FatalityFrame, aes(x = BGN_DATE,y = Fatalities, col = EVTYPE))+
+      geom_line(size = 2) + scale_color_brewer(palette = "Set1")
+
+InjuryOverTime <- ggplot(InjuryFrame, aes(x = BGN_DATE,y = Injuries, col = EVTYPE)) +
+      geom_line(size = 2) + scale_color_brewer(palette = "Set2")
+grid.arrange(FatalityOverTime,InjuryOverTime)
+```
+
+According to the figure, Tornados and excessive episodes of heat have had the largest impact on human fatality over the past decade and a half. Heat had the most consistent effect on human fatality, while Tornados only started to really become a problem past 2010. Ultimately more research should be done to study how to prevent deaths due to these types of weather. 
+
+The most significant injury-causing events were flooding and tornados.
+
+```{r}
+PropDmgOverTime <- ggplot(PropertyFrame, aes(x = BGN_DATE, y = PropDmg, col = EVTYPE))+
+      geom_line(size= 2) + scale_color_brewer(palette = "Set3")
+CropDmgOverTime <- ggplot(CropFrame, aes(x = BGN_DATE, y = CropDmg, col = EVTYPE))+
+      geom_line(size= 2) + scale_color_brewer(palette = "Set4")
+grid.arrange(PropDmgOverTime,CropDmgOverTime)
+```
+When it comes to property damage, flooding caused the most significant amount of damage in the year of 2006. Hurricanes were the second most impactful in terms of property damage. The most crop damage was also caused by hurricanes, although droughts and flooding were more frequent causes of crop damage. 

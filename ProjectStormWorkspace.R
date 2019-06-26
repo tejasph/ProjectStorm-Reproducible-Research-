@@ -10,6 +10,8 @@ setwd("~/R Material/Coursera/Course 5 Reproducible Research/Week 4/Project Storm
 WeatherDatabase <- read.csv("repdata_data_StormData.csv", stringsAsFactors = FALSE)
 
 library(dplyr)
+library(ggplot2)
+library(gridExtra)
 
 #EVTYPE Cleaning
 EVClean <- function(x){
@@ -84,7 +86,6 @@ DmgCombine <- function(Dmg, Exp){
 #finds the top 5 for one of the parameter categories: fatalities, injuries, cropdmg, propdmg
 TopFive <- function(Frame, Category){
       Frame <- Frame[order(-Frame[,2]),]
-      print(head(Frame))
       return(Frame[1:5,1])
 }
 #Removes NA Values from a given dataframe
@@ -194,9 +195,16 @@ CropFrame <- CropFrame[CropFrame$EVTYPE %in% TopCropDmg, c(1:3)]
 #names(YearlyTable) <- c("EventType", "BgnDate", "Fatalities", "Injuries", "PropertyDmg", "CropDmg")
 
 #Fatality Analysis
-#FatalityFrame <- YearlyTable[YearlyTable$EventType %in% TopFatalities, c(1:3)]
 
-#g <- ggplot(FatalityFrame, aes(x = BgnDate,y = Fatalities, col = EventType)) 
-#g <- g + geom_line(size = 2)
 
-#
+f <- ggplot(FatalityFrame, aes(x = BGN_DATE,y = Fatalities, col = EVTYPE)) 
+f<- f + geom_line(size = 2)
+
+I <- ggplot(InjuryFrame, aes(x = BGN_DATE,y = Injuries, col = EVTYPE)) 
+I<- I + geom_line(size = 2)
+
+P <- ggplot(PropertyFrame, aes(x = BGN_DATE,y = PropDmg, col = EVTYPE)) 
+P<- P + geom_line(size = 2)
+
+C <- ggplot(CropFrame, aes(x = BGN_DATE,y = CropDmg, col = EVTYPE)) 
+C<- C + geom_line(size = 2)
